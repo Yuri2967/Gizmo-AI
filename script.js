@@ -258,8 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function saveCurrentSession() {
         let title = "New Chat";
-        // --- CHANGE START ---
-        // Ensure we only grab actual user messages, strictly bypassing the system instruction at index 0.
         const firstUserMsg = conversationHistory.find((m, i) => m.role === 'user' && i > 0);
         if (firstUserMsg) {
             const textPart = firstUserMsg.parts.find(p => p.text);
@@ -269,7 +267,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 title = "Image Upload";
             }
         }
-        // --- CHANGE END ---
         
         if (allSessions[currentSessionId] && allSessions[currentSessionId].manualTitle) {
              title = allSessions[currentSessionId].manualTitle;
@@ -508,12 +505,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             const modelResponse = data.candidates[0].content.parts[0].text;
             
-            // --- CHANGE START ---
-            // Accurately capture total session tokens used
             if (data.usageMetadata) {
                 cumulativeTokens += data.usageMetadata.totalTokenCount || ((data.usageMetadata.promptTokenCount || 0) + (data.usageMetadata.candidatesTokenCount || 0));
             }
-            // --- CHANGE END ---
             
             totalTokensDisplay.textContent = cumulativeTokens;
             const modelMessage = { role: 'model', parts: [{ text: modelResponse }], timestamp: new Date().toISOString() };
@@ -580,11 +574,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         wrapper.appendChild(metaContainer);
         chatLog.insertBefore(wrapper, scrollAnchor);
-        
-        // --- CHANGE START ---
-        // Completely removed the buggy dynamic Javascript image width calculation.
-        // It is now handled securely and perfectly by the max-height CSS rule.
-        // --- CHANGE END ---
         
         if (shouldScroll) scrollToBottom();
         
@@ -660,7 +649,6 @@ document.addEventListener('DOMContentLoaded', () => {
             window.speechSynthesis.cancel();
             currentSpeakingButton = listenButton;
             
-            // Attached to global variable to prevent Chrome from silently killing the audio event
             currentUtterance = new SpeechSynthesisUtterance(textToCopy);
             currentUtterance.lang = 'en-US';
             currentUtterance.onstart = () => { listenButton.innerHTML = STOP_ICON; listenTooltip.textContent = 'Stop'; };
