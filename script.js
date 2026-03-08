@@ -18,27 +18,60 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiKeyInput = document.getElementById('api-key-input');
     const historyLimitSelect = document.getElementById('history-limit-select');
     const chatContainer = document.getElementById('chat-container');
+    const sidebar = document.getElementById('sidebar');
+    const menuBtn = document.getElementById('menu-btn');
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    const newChatBtn = document.getElementById('new-chat-btn');
+    const historyList = document.getElementById('history-list');
+    const welcomeScreen = document.getElementById('welcome-screen');
+
+    const imageModal = document.getElementById('image-modal');
+    const enlargedImage = document.getElementById('enlarged-image');
+    const closeModalBtn = document.getElementById('close-modal');
 
     // --- State & Constants ---
     let userApiKey = '';
     let historyLimit = 10; 
-    
+    let currentSessionId = Date.now().toString();
+    let allSessions = {}; 
+
     const SYSTEM_INSTRUCTIONS = "You are Gizmo, a helpful, intelligent, and concise AI assistant. You respond in Markdown format. Keep your answers concise and to the point unless asked for details. Use commas for values below zero and use metric units like meters, kilometers and celcius.";
-    const INITIAL_MODEL_RESPONSE = { role: 'model', parts:[{ text: "Hi there! I am Gizmo. Before we start, please click the **settings icon** (gear) to add your Google Gemini API Key.\n\nHow can I assist you today?" }] };
     
     const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
     const INITIAL_SYSTEM_MESSAGE = { role: 'user', parts:[{ text: SYSTEM_INSTRUCTIONS }] };
     
-    let conversationHistory =[INITIAL_SYSTEM_MESSAGE, INITIAL_MODEL_RESPONSE];
+    let conversationHistory =[INITIAL_SYSTEM_MESSAGE];
     let cumulativeTokens = 0;
     let lastUserMessage = null;
     let uploadedFileState = null;
     let currentSpeakingButton = null;
+    let currentUtterance = null; 
 
-    const COPY_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>`;
-    const LISTEN_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`;
-    const STOP_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2" ry="2"></rect></svg>`;
-    const REGENERATE_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>`;
+    // --- CHANGE START ---
+    // Proper Volume Max Icon + Other matching solid icons
+    const COPY_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
+    const LISTEN_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.81 5 3.54 5 6.71s-2.11 5.9-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`;
+    const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/></svg>`;
+    const REGENERATE_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`;
+    const EDIT_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
+    const TRASH_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`;
+    // --- CHANGE END ---
+
+    function openModal(src) {
+        enlargedImage.src = src;
+        imageModal.classList.remove('hidden');
+    }
+
+    function closeModal() {
+        imageModal.classList.add('hidden');
+        setTimeout(() => { enlargedImage.src = ''; }, 250); 
+    }
+
+    closeModalBtn.addEventListener('click', closeModal);
+    imageModal.addEventListener('click', (e) => {
+        if (e.target === imageModal) closeModal();
+    });
 
     function saveChatToDB() {
         localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
@@ -70,12 +103,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 scrollToBottom(false);
                 updateRegenerateButton();
+                if(conversationHistory.length > 1) {
+                    welcomeScreen.classList.add('hidden');
+                }
             } catch (e) {
-                addMessage(INITIAL_MODEL_RESPONSE, 'model', false);
+                welcomeScreen.classList.remove('hidden');
                 updateRegenerateButton();
             }
         } else {
-            addMessage(INITIAL_MODEL_RESPONSE, 'model', false);
+            welcomeScreen.classList.remove('hidden');
             updateRegenerateButton();
         }
     }
@@ -88,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedTheme = localStorage.getItem('theme') || 'light';
         applyTheme(savedTheme);
 
-        const savedModel = localStorage.getItem('selectedModel') || 'gemma-3-27b-it';
+        const savedModel = localStorage.getItem('selectedModel') || 'gemini-3.1-flash-lite-preview';
         modelSelect.value = savedModel;
 
         userApiKey = localStorage.getItem('userApiKey') || '';
@@ -101,13 +137,44 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); 
+            sendButton.click(); 
+        }
+    });
+
     userInput.addEventListener('focus', () => { setTimeout(() => { body.classList.add('input-focus-mode'); scrollToBottom(); }, 100); });
     userInput.addEventListener('blur', () => { body.classList.remove('input-focus-mode'); });
-    uploadButton.addEventListener('click', () => { fileInput.click(); });
+    
+    uploadButton.addEventListener('click', (event) => { 
+        fileInput.click(); 
+        uploadButton.blur(); 
+    });
     
     settingsButton.addEventListener('click', (event) => { 
         event.stopPropagation();
         settingsMenu.classList.toggle('visible'); 
+        settingsButton.blur(); 
+    });
+
+    function toggleSidebar() {
+        if (window.innerWidth <= 768) {
+            body.classList.toggle('sidebar-open');
+            sidebarOverlay.classList.toggle('active');
+        } else {
+            body.classList.toggle('sidebar-closed');
+        }
+    }
+
+    toggleSidebarBtn.addEventListener('click', toggleSidebar);
+    menuBtn.addEventListener('click', toggleSidebar);
+    
+    newChatBtn.addEventListener('click', createNewChat);
+    
+    sidebarOverlay.addEventListener('click', () => {
+        body.classList.remove('sidebar-open');
+        sidebarOverlay.classList.remove('active');
     });
     
     document.addEventListener('click', (event) => {
@@ -117,23 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     clearChatButton.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear the entire chat?')) {
+        if (confirm('Delete current chat?')) {
             settingsMenu.classList.remove('visible'); 
-            const modelTimestamp = { ...INITIAL_MODEL_RESPONSE, timestamp: new Date().toISOString() };
-            conversationHistory = [INITIAL_SYSTEM_MESSAGE, modelTimestamp];
-            cumulativeTokens = 0;
-            
-            localStorage.removeItem('chatHistory');
-            localStorage.removeItem('chatTokens');
-
-            chatLog.innerHTML = '';
-            scrollAnchor = document.createElement('div');
-            scrollAnchor.id = 'scroll-anchor';
-            chatLog.appendChild(scrollAnchor);
-            
-            addMessage(modelTimestamp, 'model');
-            totalTokensDisplay.textContent = '0';
-            lastUserMessage = null;
+            delete allSessions[currentSessionId];
+            localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
+            createNewChat();
         }
     });
     
@@ -145,24 +200,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     modelSelect.addEventListener('change', () => localStorage.setItem('selectedModel', modelSelect.value));
-    
-    apiKeyInput.addEventListener('change', () => {
-        userApiKey = apiKeyInput.value.trim();
-        localStorage.setItem('userApiKey', userApiKey);
-    });
-
-    historyLimitSelect.addEventListener('change', () => {
-        historyLimit = parseInt(historyLimitSelect.value, 10);
-        localStorage.setItem('historyLimit', historyLimit);
-    });
+    apiKeyInput.addEventListener('change', () => { userApiKey = apiKeyInput.value.trim(); localStorage.setItem('userApiKey', userApiKey); });
+    historyLimitSelect.addEventListener('change', () => { historyLimit = parseInt(historyLimitSelect.value, 10); localStorage.setItem('historyLimit', historyLimit); });
 
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return;
-        if (file.size > 10 * 1024 * 1024) { 
-            alert('File is too large. Limit is 10MB.'); 
-            fileInput.value = ''; return; 
-        }
+        if (file.size > 10 * 1024 * 1024) { alert('File is too large. Limit is 10MB.'); fileInput.value = ''; return; }
         const reader = new FileReader();
         reader.onloadend = () => {
             const base64Data = reader.result.split(',')[1];
@@ -197,6 +241,166 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function createNewChat() {
+        currentSessionId = Date.now().toString();
+        conversationHistory =[INITIAL_SYSTEM_MESSAGE];
+        cumulativeTokens = 0;
+        renderChatLog();
+        saveCurrentSession();
+        renderHistoryList();
+        
+        welcomeScreen.classList.remove('hidden');
+        if (window.innerWidth <= 768) {
+            body.classList.remove('sidebar-open');
+            sidebarOverlay.classList.remove('active');
+        }
+    }
+
+    function saveCurrentSession() {
+        let title = "New Chat";
+        // --- CHANGE START ---
+        // Ensure we only grab actual user messages, strictly bypassing the system instruction at index 0.
+        const firstUserMsg = conversationHistory.find((m, i) => m.role === 'user' && i > 0);
+        if (firstUserMsg) {
+            const textPart = firstUserMsg.parts.find(p => p.text);
+            if (textPart && textPart.text) {
+                title = textPart.text.substring(0, 30);
+            } else {
+                title = "Image Upload";
+            }
+        }
+        // --- CHANGE END ---
+        
+        if (allSessions[currentSessionId] && allSessions[currentSessionId].manualTitle) {
+             title = allSessions[currentSessionId].manualTitle;
+        }
+
+        allSessions[currentSessionId] = {
+            id: currentSessionId,
+            history: conversationHistory,
+            tokens: cumulativeTokens,
+            title: title,
+            manualTitle: allSessions[currentSessionId]?.manualTitle || null,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
+        localStorage.setItem('gizmo_current_id', currentSessionId);
+    }
+
+    function loadSession(id) {
+        if (allSessions[id]) {
+            currentSessionId = id;
+            conversationHistory = allSessions[id].history;
+            cumulativeTokens = allSessions[id].tokens;
+            
+            if (conversationHistory.length > 1) {
+                welcomeScreen.classList.add('hidden');
+            } else {
+                welcomeScreen.classList.remove('hidden');
+            }
+            
+            renderChatLog();
+            renderHistoryList();
+            localStorage.setItem('gizmo_current_id', currentSessionId);
+            if (window.innerWidth <= 768) {
+                body.classList.remove('sidebar-open');
+                sidebarOverlay.classList.remove('active');
+            }
+        }
+    }
+
+    function renderHistoryList() {
+        historyList.innerHTML = '';
+        const sortedIds = Object.keys(allSessions).sort((a, b) => allSessions[b].timestamp - allSessions[a].timestamp);
+
+        sortedIds.forEach(id => {
+            const session = allSessions[id];
+            
+            const itemContainer = document.createElement('div');
+            itemContainer.className = `history-item-container ${id === currentSessionId ? 'active' : ''}`;
+            itemContainer.onclick = () => loadSession(id);
+            
+            const titleSpan = document.createElement('span');
+            titleSpan.className = 'history-item-title';
+            titleSpan.textContent = session.title || "New Chat";
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'history-item-actions';
+
+            const editBtn = document.createElement('button');
+            editBtn.innerHTML = EDIT_ICON;
+            editBtn.title = "Rename";
+            editBtn.onclick = (e) => {
+                e.stopPropagation();
+                const newTitle = prompt("Enter a new name for this chat:", session.title);
+                if (newTitle !== null && newTitle.trim() !== '') {
+                    allSessions[id].manualTitle = newTitle.trim();
+                    allSessions[id].title = newTitle.trim();
+                    localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
+                    renderHistoryList();
+                }
+            };
+
+            const delBtn = document.createElement('button');
+            delBtn.innerHTML = TRASH_ICON;
+            delBtn.title = "Delete";
+            delBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (confirm("Delete this chat permanently?")) {
+                    delete allSessions[id];
+                    localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
+                    if (currentSessionId === id) {
+                        createNewChat();
+                    } else {
+                        renderHistoryList();
+                    }
+                }
+            };
+
+            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(delBtn);
+
+            itemContainer.appendChild(titleSpan);
+            itemContainer.appendChild(actionsDiv);
+            historyList.appendChild(itemContainer);
+        });
+    }
+
+    function loadAllSessions() {
+        const storedSessions = localStorage.getItem('gizmo_sessions');
+        if (storedSessions) {
+            try {
+                allSessions = JSON.parse(storedSessions);
+            } catch(e) { allSessions = {}; }
+        }
+        
+        const lastId = localStorage.getItem('gizmo_current_id');
+        if (lastId && allSessions[lastId]) {
+            loadSession(lastId);
+        } else {
+            createNewChat();
+        }
+    }
+
+    function renderChatLog() {
+        chatLog.innerHTML = '';
+        scrollAnchor = document.createElement('div');
+        scrollAnchor.id = 'scroll-anchor';
+        chatLog.appendChild(scrollAnchor);
+        totalTokensDisplay.textContent = cumulativeTokens;
+
+        conversationHistory.forEach((message, index) => {
+            if (index === 0) return;
+            if (message.role === 'model') {
+                addMessage(message, 'model', false);
+            } else if (message.role === 'user') {
+                addMessage(message, 'user', false);
+            }
+        });
+        scrollToBottom(false);
+        updateRegenerateButton();
+    }
+
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const userMessageText = userInput.value.trim();
@@ -208,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
+        welcomeScreen.classList.add('hidden');
         updateRegenerateButton(true);
 
         const messageParts =[];
@@ -218,7 +423,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         addMessage(lastUserMessage, 'user');
         conversationHistory.push(lastUserMessage);
-        saveChatToDB();
+        
+        if (conversationHistory.length === 2 && !allSessions[currentSessionId]?.manualTitle) { 
+            allSessions[currentSessionId].title = userMessageText.substring(0, 30) || "Image Upload";
+            renderHistoryList();
+        }
+        saveCurrentSession();
         
         userInput.value = '';
         uploadedFileState = null;
@@ -231,11 +441,8 @@ document.addEventListener('DOMContentLoaded', () => {
         await callInsecureApi(thinkingMessageBubble);
     });
 
-    // --- CHANGE START ---
-    // Aggressive scroll function to guarantee visibility
     function scrollToBottom(smooth = true) {
         if (!chatContainer) return;
-        // Using requestAnimationFrame ensures the DOM has fully calculated new heights before scrolling
         requestAnimationFrame(() => {
             chatContainer.scrollTo({
                 top: chatContainer.scrollHeight,
@@ -246,91 +453,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatMessage(text) {
         if (!text) return '';
-    
-        // 1. Destroy trailing invisible carriage returns (\r) and trim giant empty spaces
         text = text.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        
         const escapeDiv = document.createElement('div');
         escapeDiv.textContent = text;
         let safeText = escapeDiv.innerHTML;
-    
         safeText = safeText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
         safeText = safeText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
         const lines = safeText.split('\n');
         let html = '';
         let listState = null;
-    
         lines.forEach(line => {
-            // Trim the physical line again so no trailing spaces get caught in the <p> tag
             const trimmed = line.trim(); 
             const ulMatch = trimmed.match(/^[-*]\s+(.*)/);
             const olMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
-    
             if (ulMatch) {
-                if (listState !== 'ul') {
-                    if (listState) html += `</${listState}>`;
-                    html += '<ul>';
-                    listState = 'ul';
-                }
+                if (listState !== 'ul') { if (listState) html += `</${listState}>`; html += '<ul>'; listState = 'ul'; }
                 html += `<li>${ulMatch[1]}</li>`;
             } else if (olMatch) {
-                if (listState !== 'ol') {
-                    if (listState) html += `</${listState}>`;
-                    html += '<ol>';
-                    listState = 'ol';
-                }
+                if (listState !== 'ol') { if (listState) html += `</${listState}>`; html += '<ol>'; listState = 'ol'; }
                 html += `<li>${olMatch[2]}</li>`;
             } else {
-                if (listState) {
-                    html += `</${listState}>`;
-                    listState = null;
-                }
-                // ONLY generate a <p> if the line actually contains text characters
-                if (trimmed.length > 0) {
-                    html += `<p>${trimmed}</p>`;
-                }
+                if (listState) { html += `</${listState}>`; listState = null; }
+                if (trimmed.length > 0) { html += `<p>${trimmed}</p>`; }
             }
         });
-    
-        if (listState) {
-            html += `</${listState}>`;
-        }
-    
+        if (listState) { html += `</${listState}>`; }
         return html;
     }
-    // --- CHANGE END ---
 
     function formatTimestamp(isoString) {
         if (!isoString) return '';
         const msgDate = new Date(isoString);
         const now = new Date();
         const diffHours = (now - msgDate) / (1000 * 60 * 60);
-
-        if (diffHours > 12) {
-            return msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-        } else {
-            return msgDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        }
+        if (diffHours > 12) { return msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+        else { return msgDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
     }
 
     async function callInsecureApi(thinkingMessageBubble) {
         let messagesToSend = conversationHistory;
-        
         if (historyLimit > 0 && conversationHistory.length > historyLimit + 1) {
-            messagesToSend = [
-                conversationHistory[0], 
-                ...conversationHistory.slice(-historyLimit)
-            ];
+            messagesToSend = [conversationHistory[0], ...conversationHistory.slice(-historyLimit)];
         }
-
-        const historyForAPI = messagesToSend.map(msg => {
-            const { fileName, timestamp, ...apiMsg } = msg;
-            return apiMsg;
-        });
-        
-        const activeApiKey = userApiKey.trim();
-        const API_URL = `${BASE_API_URL}${modelSelect.value}:generateContent?key=${activeApiKey}`;
+        const historyForAPI = messagesToSend.map(msg => { const { fileName, timestamp, ...apiMsg } = msg; return apiMsg; });
+        const API_URL = `${BASE_API_URL}${modelSelect.value}:generateContent?key=${userApiKey}`;
 
         try {
             const response = await fetch(API_URL, {
@@ -341,15 +507,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.error.message || 'API request failed'); }
             const data = await response.json();
             const modelResponse = data.candidates[0].content.parts[0].text;
-            const usage = data.usageMetadata;
-            cumulativeTokens += (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0);
+            
+            // --- CHANGE START ---
+            // Accurately capture total session tokens used
+            if (data.usageMetadata) {
+                cumulativeTokens += data.usageMetadata.totalTokenCount || ((data.usageMetadata.promptTokenCount || 0) + (data.usageMetadata.candidatesTokenCount || 0));
+            }
+            // --- CHANGE END ---
+            
             totalTokensDisplay.textContent = cumulativeTokens;
             const modelMessage = { role: 'model', parts: [{ text: modelResponse }], timestamp: new Date().toISOString() };
             updateModelMessage(thinkingMessageBubble, modelMessage);
             conversationHistory.push(modelMessage);
-            saveChatToDB();
+            saveCurrentSession();
         } catch (error) {
-            const errorMessage = { role: 'model', parts:[{ text: `Error: ${error.message}. Check your API Key.`}], timestamp: new Date().toISOString() };
+            const errorMessage = { role: 'model', parts:[{ text: `Error: ${error.message}. Check API Key.`}], timestamp: new Date().toISOString() };
             updateModelMessage(thinkingMessageBubble, errorMessage);
         } finally {
             setFormDisabled(false);
@@ -357,101 +529,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function setFormDisabled(disabled) {
-        userInput.disabled = disabled;
-        sendButton.disabled = disabled;
-        uploadButton.disabled = disabled;
-        // Settings remain clickable during generation
-    }
+    function setFormDisabled(disabled) { userInput.disabled = disabled; sendButton.disabled = disabled; uploadButton.disabled = disabled; }
 
     function addMessage(messageData, sender, shouldScroll = true) {
         const wrapper = document.createElement('div');
         wrapper.classList.add('message-wrapper', sender);
-        
         const bubble = document.createElement('div');
         bubble.classList.add('message-bubble', sender);
-
-        let textContentForTTS = '';
-        let textSpan = null;
-        let imgElement = null;
-
+        
+        let textContentForTTS = messageData.parts ? messageData.parts[0].text : messageData.text;
+        
         if (sender === 'user') {
-            const textPart = messageData.parts.find(p => p.text);
-            const filePart = messageData.parts.find(p => p.inlineData);
-            if (textPart && textPart.text) {
-                textSpan = document.createElement('span');
-                textSpan.textContent = textPart.text;
-                bubble.appendChild(textSpan);
-                textContentForTTS = textPart.text;
-            }
-            if (filePart) {
-                const { mimeType, data } = filePart.inlineData;
-                const fileName = messageData.fileName;
-                if (mimeType.startsWith('image/')) {
-                    imgElement = document.createElement('img');
-                    imgElement.src = `data:${mimeType};base64,${data}`;
-                    imgElement.alt = fileName;
-                    imgElement.onload = () => scrollToBottom(true);
-                    if (textSpan) bubble.appendChild(document.createElement('br'));
-                    bubble.appendChild(imgElement);
-                } else {
-                    const fileTag = document.createElement('div');
-                    fileTag.classList.add('user-file-tag');
-                    fileTag.textContent = `📄 File: ${fileName}`;
-                    bubble.appendChild(fileTag);
+            if (messageData.fileName) {
+                if (textContentForTTS) {
+                    bubble.appendChild(document.createTextNode(textContentForTTS));
+                    bubble.appendChild(document.createElement('br'));
                 }
+                const filePart = messageData.parts.find(p => p.inlineData);
+                if (filePart) {
+                    if (filePart.inlineData.mimeType.startsWith('image/')) {
+                        const imgElement = document.createElement('img');
+                        imgElement.src = `data:${filePart.inlineData.mimeType};base64,${filePart.inlineData.data}`;
+                        imgElement.alt = messageData.fileName;
+                        imgElement.addEventListener('click', () => { openModal(imgElement.src); });
+                        imgElement.onload = () => scrollToBottom(true);
+                        bubble.appendChild(imgElement);
+                    } else {
+                        const fileTag = document.createElement('div');
+                        fileTag.classList.add('user-file-tag');
+                        fileTag.textContent = `📄 File: ${messageData.fileName}`;
+                        bubble.appendChild(fileTag);
+                    }
+                }
+            } else {
+                bubble.textContent = textContentForTTS;
             }
         } else {
-            textContentForTTS = messageData.parts ? messageData.parts[0].text : messageData.text;
-            bubble.innerHTML = formatMessage(textContentForTTS || '');
+            bubble.innerHTML = DOMPurify.sanitize(marked.parse(textContentForTTS || ''));
         }
 
         wrapper.appendChild(bubble);
         
         const metaContainer = document.createElement('div');
         metaContainer.classList.add('message-meta');
-        
         if (messageData.timestamp) {
             const timestamp = document.createElement('span');
             timestamp.classList.add('message-timestamp');
             timestamp.textContent = formatTimestamp(messageData.timestamp);
             metaContainer.appendChild(timestamp);
         }
-        
         wrapper.appendChild(metaContainer);
-
         chatLog.insertBefore(wrapper, scrollAnchor);
-        if (imgElement) {
-            const textWidth = textSpan ? textSpan.offsetWidth : 0;
-            const minWidth = 150;
-            imgElement.style.width = `${Math.max(textWidth, minWidth)}px`;
-            imgElement.style.maxWidth = '100%';
-        }
+        
+        // --- CHANGE START ---
+        // Completely removed the buggy dynamic Javascript image width calculation.
+        // It is now handled securely and perfectly by the max-height CSS rule.
+        // --- CHANGE END ---
         
         if (shouldScroll) scrollToBottom();
         
-        if (sender === 'model' && textContentForTTS) { addMessageActions(wrapper, bubble, textContentForTTS); }
+        if (textContentForTTS) addMessageActions(wrapper, bubble, textContentForTTS);
         return bubble;
     }
     
     function updateModelMessage(bubbleElement, messageData) {
         bubbleElement.classList.remove('loading-bubble');
-        bubbleElement.innerHTML = formatMessage(messageData.parts[0].text);
-        
+        bubbleElement.innerHTML = DOMPurify.sanitize(marked.parse(messageData.parts[0].text));
         const wrapper = bubbleElement.parentElement;
-        
-        let metaContainer = wrapper.querySelector('.message-meta');
-        if (!metaContainer) {
-            metaContainer = document.createElement('div');
-            metaContainer.classList.add('message-meta');
-            wrapper.appendChild(metaContainer);
-        }
-
+        const metaContainer = wrapper.querySelector('.message-meta');
         const timestamp = document.createElement('span');
         timestamp.classList.add('message-timestamp');
         timestamp.textContent = formatTimestamp(messageData.timestamp);
         metaContainer.insertBefore(timestamp, metaContainer.firstChild);
-
         addMessageActions(wrapper, bubbleElement, messageData.parts[0].text);
     }
 
@@ -473,8 +622,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateRegenerateButton(removeOnly = false) {
         document.querySelectorAll('.regenerate-btn').forEach(btn => btn.parentElement.remove());
         if (removeOnly) return;
-        
-        if (conversationHistory.length <= 2) return;
+        if (conversationHistory.length <= 1) return;
     
         const lastModelWrapper = Array.from(document.querySelectorAll('.message-wrapper.model')).pop();
         if (lastModelWrapper) {
@@ -493,18 +641,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addMessageActions(wrapper, bubbleElement, textToCopy) {
         let metaContainer = wrapper.querySelector('.message-meta');
-        if (!metaContainer) {
-            metaContainer = document.createElement('div');
-            metaContainer.classList.add('message-meta');
-            wrapper.appendChild(metaContainer);
+        let actionsContainer = metaContainer.querySelector('.message-actions');
+        if (!actionsContainer) {
+             actionsContainer = document.createElement('div');
+             actionsContainer.classList.add('message-actions');
+             metaContainer.appendChild(actionsContainer);
         }
 
-        const oldActions = metaContainer.querySelector('.message-actions');
-        if (oldActions) oldActions.remove();
-
-        const actionsContainer = document.createElement('div');
-        actionsContainer.classList.add('message-actions');
-        
         const { wrapper: copyWrapper, button: copyButton, tooltip: copyTooltip } = createActionButton(COPY_ICON, 'Copy');
         copyButton.onclick = () => { navigator.clipboard.writeText(textToCopy).then(() => { copyTooltip.textContent = 'Copied!'; setTimeout(() => { copyTooltip.textContent = 'Copy'; }, 1500); }); };
         actionsContainer.appendChild(copyWrapper);
@@ -516,22 +659,24 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentSpeakingButton) { currentSpeakingButton.innerHTML = LISTEN_ICON; currentSpeakingButton.parentElement.querySelector('.custom-tooltip').textContent = 'Listen'; }
             window.speechSynthesis.cancel();
             currentSpeakingButton = listenButton;
-            const utterance = new SpeechSynthesisUtterance(textToCopy);
-            utterance.lang = 'en-US';
-            utterance.onstart = () => { listenButton.innerHTML = STOP_ICON; listenTooltip.textContent = 'Stop'; };
-            utterance.onend = utterance.onerror = () => {
-                if (currentSpeakingButton === listenButton) { currentSpeakingButton.innerHTML = LISTEN_ICON; listenTooltip.textContent = 'Listen'; currentSpeakingButton = null; }
+            
+            // Attached to global variable to prevent Chrome from silently killing the audio event
+            currentUtterance = new SpeechSynthesisUtterance(textToCopy);
+            currentUtterance.lang = 'en-US';
+            currentUtterance.onstart = () => { listenButton.innerHTML = STOP_ICON; listenTooltip.textContent = 'Stop'; };
+            currentUtterance.onend = currentUtterance.onerror = () => {
+                if (currentSpeakingButton === listenButton) { 
+                    currentSpeakingButton.innerHTML = LISTEN_ICON; 
+                    listenTooltip.textContent = 'Listen'; 
+                    currentSpeakingButton = null; 
+                }
+                currentUtterance = null;
             };
-            window.speechSynthesis.speak(utterance);
+            window.speechSynthesis.speak(currentUtterance);
         };
         actionsContainer.appendChild(listenWrapper);
-        metaContainer.appendChild(actionsContainer);
         updateRegenerateButton();
-        
-        // --- CHANGE START ---
-        // Ensure scrolling triggers AFTER buttons are added to DOM so they are visible
         setTimeout(() => scrollToBottom(false), 50);
-        // --- CHANGE END ---
     }
     
     async function handleRegenerate() {
@@ -546,7 +691,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         addMessage(lastUserMsgInHistory, 'user');
         conversationHistory.push(lastUserMsgInHistory);
-        saveChatToDB();
+        saveCurrentSession();
 
         setFormDisabled(true);
         const thinkingMessageBubble = addMessage({ text: '' }, 'model');
@@ -556,5 +701,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     loadSettings();
-    loadChatFromDB();
+    loadAllSessions();
 });
