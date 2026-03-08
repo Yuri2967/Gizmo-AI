@@ -4,7 +4,7 @@
 
 Gizmo AI is a lightweight, zero-dependency chat interface designed with a clean aesthetic. It runs entirely in your browser, connecting directly to the Google Gemini API without intermediate servers, ensuring your chat history and API keys stay on your device.
 
-🔗 **Live Demo:** [https://yuri2967.github.io/Gizmo-AI/]
+🔗 **Live Demo:** https://yuri2967.github.io/Gizmo-AI/
 
 ## ✨ Features
 
