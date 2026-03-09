@@ -6,17 +6,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatLog = document.getElementById('chat-log');
     const sendButton = document.getElementById('send-btn');
     const totalTokensDisplay = document.getElementById('total-tokens-value');
+    const powerDisplay = document.getElementById('power-value');
+    const waterDisplay = document.getElementById('water-value');
     let scrollAnchor = document.getElementById('scroll-anchor');
-    const uploadButton = document.getElementById('upload-button');
+    
     const fileInput = document.getElementById('file-input');
     const filePreviewContainer = document.getElementById('file-preview-container');
-    const settingsButton = document.getElementById('settings-button');
+    const plusSettingsBtn = document.getElementById('plus-settings-btn');
+    const menuAddFilesBtn = document.getElementById('menu-add-files-btn');
     const settingsMenu = document.getElementById('settings-menu');
-    const clearChatButton = document.getElementById('clear-chat-button');
     const toggleThemeButton = document.getElementById('toggle-theme-button');
-    const modelSelect = document.getElementById('model-select');
     const apiKeyInput = document.getElementById('api-key-input');
-    const historyLimitSelect = document.getElementById('history-limit-select');
     const chatContainer = document.getElementById('chat-container');
     const sidebar = document.getElementById('sidebar');
     const menuBtn = document.getElementById('menu-btn');
@@ -36,6 +36,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSessionId = Date.now().toString();
     let allSessions = {}; 
 
+    // Streaming & Generation Locks
+    let isGenerating = false;
+    let activeStreamSessionId = null;
+    let activeStreamMessageObj = null;
+    let activeStreamBubbleElement = null;
+
     const SYSTEM_INSTRUCTIONS = "You are Gizmo, a helpful, intelligent, and concise AI assistant. You respond in Markdown format. Keep your answers concise and to the point unless asked for details. Use commas for values below zero and use metric units like meters, kilometers and celcius.";
     
     const BASE_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
@@ -48,15 +54,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSpeakingButton = null;
     let currentUtterance = null; 
 
-    // --- CHANGE START ---
-    // Proper Volume Max Icon + Other matching solid icons
+    const MODEL_MULTIPLIERS = {
+        'gemini-3.1-flash-lite-preview': 0.5,
+        'gemma-3-27b-it': 2.2,
+        'gemma-3-12b-it': 1.0,
+        'gemma-3-4b-it': 0.3,
+        'gemma-3-2b-it': 0.15,
+        'gemma-3-1b-it': 0.08
+    };
+
+    // Solid SVG Icons
     const COPY_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>`;
     const LISTEN_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.81 5 3.54 5 6.71s-2.11 5.9-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>`;
     const STOP_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z"/></svg>`;
     const REGENERATE_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/></svg>`;
     const EDIT_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>`;
     const TRASH_ICON = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`;
-    // --- CHANGE END ---
 
     function openModal(src) {
         enlargedImage.src = src;
@@ -72,70 +85,117 @@ document.addEventListener('DOMContentLoaded', () => {
     imageModal.addEventListener('click', (e) => {
         if (e.target === imageModal) closeModal();
     });
-
-    function saveChatToDB() {
-        localStorage.setItem('chatHistory', JSON.stringify(conversationHistory));
-        localStorage.setItem('chatTokens', cumulativeTokens);
-    }
-
-    function loadChatFromDB() {
-        const savedHistory = localStorage.getItem('chatHistory');
-        const savedTokens = localStorage.getItem('chatTokens');
-        chatLog.innerHTML = '';
-        scrollAnchor = document.createElement('div');
-        scrollAnchor.id = 'scroll-anchor';
-        chatLog.appendChild(scrollAnchor);
-
-        if (savedHistory) {
-            try {
-                conversationHistory = JSON.parse(savedHistory);
-                cumulativeTokens = savedTokens ? parseInt(savedTokens, 10) : 0;
-                totalTokensDisplay.textContent = cumulativeTokens;
-
-                conversationHistory.forEach((message, index) => {
-                    if (index === 0) return;
-                    if (message.role === 'model') {
-                        addMessage(message, 'model', false);
-                    } else if (message.role === 'user') {
-                        addMessage(message, 'user', false);
-                        lastUserMessage = message;
-                    }
-                });
-                scrollToBottom(false);
-                updateRegenerateButton();
-                if(conversationHistory.length > 1) {
-                    welcomeScreen.classList.add('hidden');
-                }
-            } catch (e) {
-                welcomeScreen.classList.remove('hidden');
-                updateRegenerateButton();
-            }
-        } else {
-            welcomeScreen.classList.remove('hidden');
-            updateRegenerateButton();
-        }
-    }
     
     function applyTheme(theme) {
         document.body.classList.toggle('dark-mode', theme === 'dark');
     }
 
-    function loadSettings() {
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        applyTheme(savedTheme);
+    // Custom Dropdown Helper (Snappy Pointer Events)
+    function initCustomSelect(selectId, onSelect) {
+        const selectContainer = document.getElementById(selectId);
+        const trigger = selectContainer.querySelector('.select-trigger');
+        const textSpan = trigger.querySelector('span');
+        const options = selectContainer.querySelectorAll('.option');
 
-        const savedModel = localStorage.getItem('selectedModel') || 'gemini-3.1-flash-lite-preview';
-        modelSelect.value = savedModel;
+        trigger.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0 && e.type !== 'touchstart') return; // Only left click/touch
+            e.preventDefault(); 
+            e.stopPropagation();
+            const isOpen = selectContainer.classList.contains('open');
+            document.querySelectorAll('.custom-select').forEach(el => el.classList.remove('open'));
+            if (!isOpen) selectContainer.classList.add('open');
+        });
+
+        options.forEach(option => {
+            option.addEventListener('pointerup', (e) => {
+                if (e.button !== 0 && e.type !== 'touchend') return;
+                e.preventDefault();
+                e.stopPropagation();
+                const value = option.getAttribute('data-value');
+                const text = option.textContent;
+                selectContainer.setAttribute('data-value', value);
+                textSpan.textContent = text;
+                selectContainer.classList.remove('open');
+                if (onSelect) onSelect(value);
+            });
+        });
+    }
+
+    function getCustomSelectValue(selectId) {
+        return document.getElementById(selectId).getAttribute('data-value');
+    }
+
+    function loadSettings() {
+        let savedTheme = localStorage.getItem('theme');
+        if (!savedTheme) {
+            savedTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            localStorage.setItem('theme', savedTheme);
+        }
+        applyTheme(savedTheme);
 
         userApiKey = localStorage.getItem('userApiKey') || '';
         apiKeyInput.value = userApiKey;
 
+        // Init Custom Model Select
+        const savedModel = localStorage.getItem('selectedModel') || 'gemini-3.1-flash-lite-preview';
+        const modelContainer = document.getElementById('custom-model-select');
+        modelContainer.setAttribute('data-value', savedModel);
+        const modelOpt = modelContainer.querySelector(`.option[data-value="${savedModel}"]`);
+        if (modelOpt) modelContainer.querySelector('.select-trigger span').textContent = modelOpt.textContent;
+        
+        initCustomSelect('custom-model-select', (val) => {
+            localStorage.setItem('selectedModel', val);
+            updateStatsDisplay();
+        });
+
+        // Init Custom History Select
         const savedLimit = localStorage.getItem('historyLimit');
         if (savedLimit !== null) {
             historyLimit = parseInt(savedLimit, 10);
-            historyLimitSelect.value = historyLimit.toString();
+            const historyContainer = document.getElementById('custom-history-select');
+            historyContainer.setAttribute('data-value', historyLimit.toString());
+            const histOpt = historyContainer.querySelector(`.option[data-value="${historyLimit}"]`);
+            if (histOpt) historyContainer.querySelector('.select-trigger span').textContent = histOpt.textContent;
+        }
+        
+        initCustomSelect('custom-history-select', (val) => {
+            historyLimit = parseInt(val, 10);
+            localStorage.setItem('historyLimit', historyLimit);
+        });
+    }
+    
+    function updateStatsDisplay() {
+        totalTokensDisplay.textContent = cumulativeTokens;
+        
+        let selectedModel = getCustomSelectValue('custom-model-select');
+        let multiplier = MODEL_MULTIPLIERS[selectedModel] || 1.0;
+        const BASE_POWER_WH = 0.001;
+        const BASE_WATER_ML = 0.01;
+        
+        if (powerDisplay && waterDisplay) {
+            let power = cumulativeTokens * BASE_POWER_WH * multiplier;
+            let water = cumulativeTokens * BASE_WATER_ML * multiplier;
+            
+            const formatStat = (val) => {
+                if (val === 0) return "0";
+                if (val >= 1) return Math.round(val).toString();
+                let firstSignificantPlace = Math.ceil(-Math.log10(val));
+                if (firstSignificantPlace < 1) firstSignificantPlace = 1;
+                return val.toFixed(firstSignificantPlace);
+            };
+            
+            powerDisplay.textContent = formatStat(power);
+            waterDisplay.textContent = formatStat(water);
         }
     }
+
+    // Textarea Auto-resize Logic
+    function resizeTextarea() {
+        userInput.style.height = '24px'; 
+        userInput.style.height = Math.min(userInput.scrollHeight, 200) + 'px';
+    }
+    userInput.addEventListener('input', resizeTextarea);
+    resizeTextarea();
 
     userInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -147,15 +207,19 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.addEventListener('focus', () => { setTimeout(() => { body.classList.add('input-focus-mode'); scrollToBottom(); }, 100); });
     userInput.addEventListener('blur', () => { body.classList.remove('input-focus-mode'); });
     
-    uploadButton.addEventListener('click', (event) => { 
-        fileInput.click(); 
-        uploadButton.blur(); 
-    });
-    
-    settingsButton.addEventListener('click', (event) => { 
+    // Snappy Plus Button Trigger
+    plusSettingsBtn.addEventListener('pointerdown', (event) => { 
+        if (event.button !== 0 && event.type !== 'touchstart') return;
+        event.preventDefault();
         event.stopPropagation();
         settingsMenu.classList.toggle('visible'); 
-        settingsButton.blur(); 
+    });
+
+    menuAddFilesBtn.addEventListener('pointerup', (e) => {
+        if (e.button !== 0 && e.type !== 'touchend') return;
+        e.preventDefault();
+        fileInput.click();
+        settingsMenu.classList.remove('visible');
     });
 
     function toggleSidebar() {
@@ -177,44 +241,72 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarOverlay.classList.remove('active');
     });
     
-    document.addEventListener('click', (event) => {
-        if (settingsMenu.classList.contains('visible') && !settingsMenu.contains(event.target) && event.target !== settingsButton) {
+    // Snappy Global click/touch listener to close custom dropdowns
+    document.addEventListener('pointerdown', (event) => {
+        if (settingsMenu.classList.contains('visible') && !settingsMenu.contains(event.target) && !plusSettingsBtn.contains(event.target)) {
             settingsMenu.classList.remove('visible');
         }
-    });
-
-    clearChatButton.addEventListener('click', () => {
-        if (confirm('Delete current chat?')) {
-            settingsMenu.classList.remove('visible'); 
-            delete allSessions[currentSessionId];
-            localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
-            createNewChat();
+        if (!event.target.closest('.custom-select')) {
+            document.querySelectorAll('.custom-select').forEach(sel => sel.classList.remove('open'));
         }
     });
     
-    toggleThemeButton.addEventListener('click', () => {
+    toggleThemeButton.addEventListener('pointerup', (e) => {
+        if (e.button !== 0 && e.type !== 'touchend') return;
         const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         localStorage.setItem('theme', newTheme);
         applyTheme(newTheme);
     });
 
-    modelSelect.addEventListener('change', () => localStorage.setItem('selectedModel', modelSelect.value));
     apiKeyInput.addEventListener('change', () => { userApiKey = apiKeyInput.value.trim(); localStorage.setItem('userApiKey', userApiKey); });
-    historyLimitSelect.addEventListener('change', () => { historyLimit = parseInt(historyLimitSelect.value, 10); localStorage.setItem('historyLimit', historyLimit); });
 
-    fileInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
+    // File Handling & Validation
+    const ALLOWED_MIME_TYPES =['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf', 'text/plain', 'text/csv', 'text/html', 'text/css', 'application/javascript', 'application/json'];
+
+    function handleFileUpload(file) {
         if (!file) return;
-        if (file.size > 10 * 1024 * 1024) { alert('File is too large. Limit is 10MB.'); fileInput.value = ''; return; }
+        
+        const isSupported = ALLOWED_MIME_TYPES.includes(file.type) || file.name.match(/\.(txt|md|csv|json|js|css|html|py|c|cpp|java)$/i);
+        if (!isSupported) {
+            alert(`File format "${file.type || file.name.split('.').pop()}" is not supported. Please upload standard images, PDFs, or text files.`);
+            return;
+        }
+
+        if (file.size > 10 * 1024 * 1024) { 
+            alert('File is too large. Limit is 10MB.'); 
+            return; 
+        }
+        
         const reader = new FileReader();
+        reader.onerror = () => { alert('Error reading file. The file might be corrupted.'); };
         reader.onloadend = () => {
             const base64Data = reader.result.split(',')[1];
-            uploadedFileState = { mimeType: file.type, data: base64Data, name: file.name };
+            let mime = file.type || 'text/plain'; 
+            uploadedFileState = { mimeType: mime, data: base64Data, name: file.name };
             renderFilePreview();
         };
         reader.readAsDataURL(file);
         fileInput.value = '';
+    }
+
+    fileInput.addEventListener('change', (event) => handleFileUpload(event.target.files[0]));
+
+    // Global Paste Listener for Images/Files
+    userInput.addEventListener('paste', (e) => {
+        if (e.clipboardData.files && e.clipboardData.files.length > 0) {
+            e.preventDefault();
+            handleFileUpload(e.clipboardData.files[0]);
+        }
+    });
+
+    // Global Drag & Drop Listeners
+    body.addEventListener('dragover', (e) => { e.preventDefault(); });
+    body.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFileUpload(e.dataTransfer.files[0]);
+        }
     });
 
     function renderFilePreview() {
@@ -241,24 +333,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function createNewChat() {
-        currentSessionId = Date.now().toString();
-        conversationHistory =[INITIAL_SYSTEM_MESSAGE];
-        cumulativeTokens = 0;
-        renderChatLog();
-        saveCurrentSession();
-        renderHistoryList();
+    function saveSpecificSession(id) {
+        if (!allSessions[id]) return;
         
-        welcomeScreen.classList.remove('hidden');
-        if (window.innerWidth <= 768) {
-            body.classList.remove('sidebar-open');
-            sidebarOverlay.classList.remove('active');
-        }
-    }
-
-    function saveCurrentSession() {
         let title = "New Chat";
-        const firstUserMsg = conversationHistory.find((m, i) => m.role === 'user' && i > 0);
+        const sessionHistory = allSessions[id].history;
+        const firstUserMsg = sessionHistory.find((m, i) => m.role === 'user' && i > 0);
         if (firstUserMsg) {
             const textPart = firstUserMsg.parts.find(p => p.text);
             if (textPart && textPart.text) {
@@ -268,20 +348,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        if (allSessions[currentSessionId] && allSessions[currentSessionId].manualTitle) {
-             title = allSessions[currentSessionId].manualTitle;
+        if (allSessions[id].manualTitle) {
+             title = allSessions[id].manualTitle;
         }
 
+        allSessions[id].title = title;
+        allSessions[id].timestamp = Date.now();
+        localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
+        if (id === currentSessionId) {
+            localStorage.setItem('gizmo_current_id', currentSessionId);
+        }
+    }
+
+    function createNewChat() {
+        currentSessionId = Date.now().toString();
+        conversationHistory =[INITIAL_SYSTEM_MESSAGE];
+        cumulativeTokens = 0;
+        
         allSessions[currentSessionId] = {
             id: currentSessionId,
             history: conversationHistory,
             tokens: cumulativeTokens,
-            title: title,
-            manualTitle: allSessions[currentSessionId]?.manualTitle || null,
+            title: "New Chat",
+            manualTitle: null,
             timestamp: Date.now()
         };
-        localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
-        localStorage.setItem('gizmo_current_id', currentSessionId);
+
+        renderChatLog();
+        saveSpecificSession(currentSessionId);
+        renderHistoryList();
+        
+        welcomeScreen.classList.remove('hidden');
+        setFormDisabled(isGenerating); 
+
+        if (window.innerWidth <= 768) {
+            body.classList.remove('sidebar-open');
+            sidebarOverlay.classList.remove('active');
+        }
     }
 
     function loadSession(id) {
@@ -299,6 +402,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderChatLog();
             renderHistoryList();
             localStorage.setItem('gizmo_current_id', currentSessionId);
+            
+            setFormDisabled(isGenerating); 
+
             if (window.innerWidth <= 768) {
                 body.classList.remove('sidebar-open');
                 sidebarOverlay.classList.remove('active');
@@ -332,8 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const newTitle = prompt("Enter a new name for this chat:", session.title);
                 if (newTitle !== null && newTitle.trim() !== '') {
                     allSessions[id].manualTitle = newTitle.trim();
-                    allSessions[id].title = newTitle.trim();
-                    localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
+                    saveSpecificSession(id);
                     renderHistoryList();
                 }
             };
@@ -343,11 +448,21 @@ document.addEventListener('DOMContentLoaded', () => {
             delBtn.title = "Delete";
             delBtn.onclick = (e) => {
                 e.stopPropagation();
+                if (isGenerating && activeStreamSessionId === id) {
+                    alert("Cannot delete chat while a response is generating.");
+                    return;
+                }
                 if (confirm("Delete this chat permanently?")) {
                     delete allSessions[id];
                     localStorage.setItem('gizmo_sessions', JSON.stringify(allSessions));
+                    
                     if (currentSessionId === id) {
-                        createNewChat();
+                        const remainingIds = Object.keys(allSessions).sort((a, b) => allSessions[b].timestamp - allSessions[a].timestamp);
+                        if (remainingIds.length > 0) {
+                            loadSession(remainingIds[0]);
+                        } else {
+                            createNewChat();
+                        }
                     } else {
                         renderHistoryList();
                     }
@@ -384,12 +499,25 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollAnchor = document.createElement('div');
         scrollAnchor.id = 'scroll-anchor';
         chatLog.appendChild(scrollAnchor);
-        totalTokensDisplay.textContent = cumulativeTokens;
+        updateStatsDisplay();
+
+        activeStreamBubbleElement = null;
 
         conversationHistory.forEach((message, index) => {
             if (index === 0) return;
+            
+            let bubble;
             if (message.role === 'model') {
-                addMessage(message, 'model', false);
+                const isThisStreaming = (isGenerating && activeStreamSessionId === currentSessionId && message === activeStreamMessageObj);
+                bubble = addMessage(message, 'model', false, isThisStreaming);
+                
+                if (isThisStreaming) {
+                    activeStreamBubbleElement = bubble;
+                    if (message.parts[0].text === '') {
+                        bubble.classList.add('loading-bubble');
+                        bubble.innerHTML = `<div class="loading-animation"><div></div><div></div><div></div></div>`;
+                    }
+                }
             } else if (message.role === 'user') {
                 addMessage(message, 'user', false);
             }
@@ -400,17 +528,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (isGenerating) return; 
+
         const userMessageText = userInput.value.trim();
         if (!userMessageText && !uploadedFileState) return;
 
         if (!userApiKey.trim()) {
-            alert("API Key is missing. Please open the settings (gear icon) and add your Gemini API Key.");
+            alert("API Key is missing. Please open the settings (+) menu and add your Gemini API Key.");
             settingsMenu.classList.add('visible');
             return;
         }
         
         welcomeScreen.classList.add('hidden');
-        updateRegenerateButton(true);
+        updateRegenerateButton(true); 
 
         const messageParts =[];
         if (userMessageText) messageParts.push({ text: userMessageText });
@@ -421,21 +551,32 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessage(lastUserMessage, 'user');
         conversationHistory.push(lastUserMessage);
         
-        if (conversationHistory.length === 2 && !allSessions[currentSessionId]?.manualTitle) { 
-            allSessions[currentSessionId].title = userMessageText.substring(0, 30) || "Image Upload";
-            renderHistoryList();
+        const targetSessionId = currentSessionId;
+        
+        saveSpecificSession(targetSessionId);
+        if (conversationHistory.length === 2 && !allSessions[targetSessionId]?.manualTitle) { 
+            renderHistoryList(); 
         }
-        saveCurrentSession();
         
         userInput.value = '';
+        resizeTextarea(); // Reset height instantly
         uploadedFileState = null;
         renderFilePreview();
         
+        isGenerating = true;
         setFormDisabled(true);
-        const thinkingMessageBubble = addMessage({ text: '' }, 'model');
+        activeStreamSessionId = targetSessionId;
+        activeStreamMessageObj = { role: 'model', parts:[{ text: '' }], timestamp: new Date().toISOString() };
+        
+        allSessions[targetSessionId].history.push(activeStreamMessageObj);
+        saveSpecificSession(targetSessionId);
+
+        const thinkingMessageBubble = addMessage(activeStreamMessageObj, 'model', true, true);
         thinkingMessageBubble.classList.add('loading-bubble');
         thinkingMessageBubble.innerHTML = `<div class="loading-animation"><div></div><div></div><div></div></div>`;
-        await callInsecureApi(thinkingMessageBubble);
+        activeStreamBubbleElement = thinkingMessageBubble;
+
+        await callInsecureApi(targetSessionId, activeStreamMessageObj);
     });
 
     function scrollToBottom(smooth = true) {
@@ -448,36 +589,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function formatMessage(text) {
-        if (!text) return '';
-        text = text.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const escapeDiv = document.createElement('div');
-        escapeDiv.textContent = text;
-        let safeText = escapeDiv.innerHTML;
-        safeText = safeText.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
-        safeText = safeText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-        const lines = safeText.split('\n');
-        let html = '';
-        let listState = null;
-        lines.forEach(line => {
-            const trimmed = line.trim(); 
-            const ulMatch = trimmed.match(/^[-*]\s+(.*)/);
-            const olMatch = trimmed.match(/^(\d+)\.\s+(.*)/);
-            if (ulMatch) {
-                if (listState !== 'ul') { if (listState) html += `</${listState}>`; html += '<ul>'; listState = 'ul'; }
-                html += `<li>${ulMatch[1]}</li>`;
-            } else if (olMatch) {
-                if (listState !== 'ol') { if (listState) html += `</${listState}>`; html += '<ol>'; listState = 'ol'; }
-                html += `<li>${olMatch[2]}</li>`;
-            } else {
-                if (listState) { html += `</${listState}>`; listState = null; }
-                if (trimmed.length > 0) { html += `<p>${trimmed}</p>`; }
-            }
-        });
-        if (listState) { html += `</${listState}>`; }
-        return html;
-    }
-
     function formatTimestamp(isoString) {
         if (!isoString) return '';
         const msgDate = new Date(isoString);
@@ -487,13 +598,15 @@ document.addEventListener('DOMContentLoaded', () => {
         else { return msgDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
     }
 
-    async function callInsecureApi(thinkingMessageBubble) {
-        let messagesToSend = conversationHistory;
-        if (historyLimit > 0 && conversationHistory.length > historyLimit + 1) {
-            messagesToSend = [conversationHistory[0], ...conversationHistory.slice(-historyLimit)];
+    async function callInsecureApi(targetSessionId, targetMessageObj) {
+        let messagesToSend = allSessions[targetSessionId].history.slice(0, -1); 
+        if (historyLimit > 0 && messagesToSend.length > historyLimit + 1) {
+            messagesToSend =[messagesToSend[0], ...messagesToSend.slice(-historyLimit)];
         }
-        const historyForAPI = messagesToSend.map(msg => { const { fileName, timestamp, ...apiMsg } = msg; return apiMsg; });
-        const API_URL = `${BASE_API_URL}${modelSelect.value}:generateContent?key=${userApiKey}`;
+        const historyForAPI = messagesToSend.map(msg => { const { fileName, timestamp, isError, ...apiMsg } = msg; return apiMsg; });
+        
+        let selectedModel = getCustomSelectValue('custom-model-select');
+        const API_URL = `${BASE_API_URL}${selectedModel}:streamGenerateContent?alt=sse&key=${userApiKey}`;
 
         try {
             const response = await fetch(API_URL, {
@@ -501,31 +614,116 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ contents: historyForAPI })
             });
-            if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.error.message || 'API request failed'); }
-            const data = await response.json();
-            const modelResponse = data.candidates[0].content.parts[0].text;
             
-            if (data.usageMetadata) {
-                cumulativeTokens += data.usageMetadata.totalTokenCount || ((data.usageMetadata.promptTokenCount || 0) + (data.usageMetadata.candidatesTokenCount || 0));
+            if (!response.ok) { 
+                const errorData = await response.json(); 
+                throw new Error(errorData.error?.message || 'API request failed'); 
             }
             
-            totalTokensDisplay.textContent = cumulativeTokens;
-            const modelMessage = { role: 'model', parts: [{ text: modelResponse }], timestamp: new Date().toISOString() };
-            updateModelMessage(thinkingMessageBubble, modelMessage);
-            conversationHistory.push(modelMessage);
-            saveCurrentSession();
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+            let finalUsageMetadata = null;
+
+            if (currentSessionId === targetSessionId && activeStreamBubbleElement && targetMessageObj.parts[0].text === '') {
+                activeStreamBubbleElement.classList.remove('loading-bubble');
+                activeStreamBubbleElement.innerHTML = '';
+            }
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                let lines = buffer.split('\n');
+                buffer = lines.pop(); 
+
+                let domNeedsUpdate = false;
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const dataStr = line.substring(6).trim();
+                        if (dataStr === '[DONE]') continue;
+                        if (!dataStr) continue;
+                        
+                        try {
+                            const data = JSON.parse(dataStr);
+                            if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts) {
+                                const chunkText = data.candidates[0].content.parts[0].text;
+                                targetMessageObj.parts[0].text += chunkText;
+                                domNeedsUpdate = true;
+                            }
+                            if (data.usageMetadata) {
+                                finalUsageMetadata = data.usageMetadata;
+                            }
+                        } catch (e) {
+                            console.error('Error parsing stream chunk', e);
+                        }
+                    }
+                }
+                
+                if (domNeedsUpdate && currentSessionId === targetSessionId && activeStreamBubbleElement) {
+                    activeStreamBubbleElement.classList.remove('loading-bubble');
+                    activeStreamBubbleElement.innerHTML = DOMPurify.sanitize(marked.parse(targetMessageObj.parts[0].text));
+                    scrollToBottom(false);
+                }
+            }
+            
+            if (finalUsageMetadata) {
+                let requestTokens = finalUsageMetadata.totalTokenCount || ((finalUsageMetadata.promptTokenCount || 0) + (finalUsageMetadata.candidatesTokenCount || 0));
+                allSessions[targetSessionId].tokens += requestTokens;
+                if (currentSessionId === targetSessionId) {
+                    cumulativeTokens = allSessions[targetSessionId].tokens;
+                    updateStatsDisplay();
+                }
+            }
+            
+            saveSpecificSession(targetSessionId);
+            
+            if (currentSessionId === targetSessionId && activeStreamBubbleElement) {
+                addMessageActions(activeStreamBubbleElement.parentElement, activeStreamBubbleElement, targetMessageObj.parts[0].text);
+            }
+
         } catch (error) {
-            const errorMessage = { role: 'model', parts:[{ text: `Error: ${error.message}. Check API Key.`}], timestamp: new Date().toISOString() };
-            updateModelMessage(thinkingMessageBubble, errorMessage);
+            targetMessageObj.isError = true;
+            targetMessageObj.parts[0].text = error.message || "An unexpected error occurred.";
+            
+            if (currentSessionId === targetSessionId && activeStreamBubbleElement) {
+                activeStreamBubbleElement.classList.remove('loading-bubble');
+                activeStreamBubbleElement.classList.add('error-bubble');
+                activeStreamBubbleElement.innerHTML = `<strong>⚠️ Generation Error</strong><div style="font-size:0.9em; opacity:0.9; margin-top:4px;">${DOMPurify.sanitize(targetMessageObj.parts[0].text)}</div>`;
+                addMessageActions(activeStreamBubbleElement.parentElement, activeStreamBubbleElement, targetMessageObj.parts[0].text);
+            }
+            
+            // Anti-Bricking Logic: Rip out corrupt files on error
+            const lastMsg = allSessions[targetSessionId].history[allSessions[targetSessionId].history.length - 2];
+            if (lastMsg && lastMsg.role === 'user' && lastMsg.parts.some(p => p.inlineData)) {
+                lastMsg.parts = lastMsg.parts.filter(p => !p.inlineData);
+                lastMsg.parts.push({ text: "\n\n*(Note: Attached file was stripped from memory due to a generation error)*" });
+            }
+
+            saveSpecificSession(targetSessionId);
         } finally {
+            isGenerating = false;
+            activeStreamSessionId = null;
+            activeStreamMessageObj = null;
+            activeStreamBubbleElement = null;
+            
             setFormDisabled(false);
-            if (!/Mobi|Android/i.test(navigator.userAgent)) { userInput.focus(); }
+            if (currentSessionId === targetSessionId && !/Mobi|Android/i.test(navigator.userAgent)) { 
+                userInput.focus(); 
+            }
+            updateRegenerateButton();
         }
     }
     
-    function setFormDisabled(disabled) { userInput.disabled = disabled; sendButton.disabled = disabled; uploadButton.disabled = disabled; }
+    function setFormDisabled(disabled) { 
+        userInput.disabled = disabled; 
+        sendButton.disabled = disabled; 
+        plusSettingsBtn.disabled = disabled; 
+    }
 
-    function addMessage(messageData, sender, shouldScroll = true) {
+    function addMessage(messageData, sender, shouldScroll = true, isStreaming = false) {
         const wrapper = document.createElement('div');
         wrapper.classList.add('message-wrapper', sender);
         const bubble = document.createElement('div');
@@ -559,7 +757,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 bubble.textContent = textContentForTTS;
             }
         } else {
-            bubble.innerHTML = DOMPurify.sanitize(marked.parse(textContentForTTS || ''));
+            if (textContentForTTS !== undefined) {
+                if (messageData.isError) {
+                    bubble.classList.add('error-bubble');
+                    bubble.innerHTML = `<strong>⚠️ Generation Error</strong><div style="font-size:0.9em; opacity:0.9; margin-top:4px;">${DOMPurify.sanitize(textContentForTTS)}</div>`;
+                } else {
+                    bubble.innerHTML = DOMPurify.sanitize(marked.parse(textContentForTTS || ''));
+                }
+            }
         }
 
         wrapper.appendChild(bubble);
@@ -577,20 +782,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (shouldScroll) scrollToBottom();
         
-        if (textContentForTTS) addMessageActions(wrapper, bubble, textContentForTTS);
+        if (textContentForTTS && !isStreaming) addMessageActions(wrapper, bubble, textContentForTTS);
         return bubble;
-    }
-    
-    function updateModelMessage(bubbleElement, messageData) {
-        bubbleElement.classList.remove('loading-bubble');
-        bubbleElement.innerHTML = DOMPurify.sanitize(marked.parse(messageData.parts[0].text));
-        const wrapper = bubbleElement.parentElement;
-        const metaContainer = wrapper.querySelector('.message-meta');
-        const timestamp = document.createElement('span');
-        timestamp.classList.add('message-timestamp');
-        timestamp.textContent = formatTimestamp(messageData.timestamp);
-        metaContainer.insertBefore(timestamp, metaContainer.firstChild);
-        addMessageActions(wrapper, bubbleElement, messageData.parts[0].text);
     }
 
     function createActionButton(icon, tooltipText) {
@@ -610,7 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateRegenerateButton(removeOnly = false) {
         document.querySelectorAll('.regenerate-btn').forEach(btn => btn.parentElement.remove());
-        if (removeOnly) return;
+        if (removeOnly || isGenerating) return; 
         if (conversationHistory.length <= 1) return;
     
         const lastModelWrapper = Array.from(document.querySelectorAll('.message-wrapper.model')).pop();
@@ -626,6 +819,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
+    }
+
+    function stripMarkdown(mdText) {
+        const temp = document.createElement('div');
+        temp.innerHTML = DOMPurify.sanitize(marked.parse(mdText));
+        return temp.textContent || temp.innerText || "";
     }
 
     function addMessageActions(wrapper, bubbleElement, textToCopy) {
@@ -649,7 +848,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.speechSynthesis.cancel();
             currentSpeakingButton = listenButton;
             
-            currentUtterance = new SpeechSynthesisUtterance(textToCopy);
+            const cleanText = stripMarkdown(textToCopy);
+            currentUtterance = new SpeechSynthesisUtterance(cleanText);
             currentUtterance.lang = 'en-US';
             currentUtterance.onstart = () => { listenButton.innerHTML = STOP_ICON; listenTooltip.textContent = 'Stop'; };
             currentUtterance.onend = currentUtterance.onerror = () => {
@@ -668,6 +868,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     async function handleRegenerate() {
+        if (isGenerating) return; 
+        
+        updateRegenerateButton(true);
+
         window.speechSynthesis.cancel();
         if (currentSpeakingButton) { currentSpeakingButton.innerHTML = LISTEN_ICON; currentSpeakingButton.parentElement.querySelector('.custom-tooltip').textContent = 'Listen'; currentSpeakingButton = null; }
 
@@ -679,13 +883,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         addMessage(lastUserMsgInHistory, 'user');
         conversationHistory.push(lastUserMsgInHistory);
-        saveCurrentSession();
+        
+        const targetSessionId = currentSessionId;
+        saveSpecificSession(targetSessionId);
 
+        isGenerating = true;
         setFormDisabled(true);
-        const thinkingMessageBubble = addMessage({ text: '' }, 'model');
+        activeStreamSessionId = targetSessionId;
+        activeStreamMessageObj = { role: 'model', parts:[{ text: '' }], timestamp: new Date().toISOString() };
+        
+        allSessions[targetSessionId].history.push(activeStreamMessageObj);
+        saveSpecificSession(targetSessionId);
+
+        const thinkingMessageBubble = addMessage(activeStreamMessageObj, 'model', true, true);
         thinkingMessageBubble.classList.add('loading-bubble');
         thinkingMessageBubble.innerHTML = `<div class="loading-animation"><div></div><div></div><div></div></div>`;
-        await callInsecureApi(thinkingMessageBubble);
+        activeStreamBubbleElement = thinkingMessageBubble;
+
+        await callInsecureApi(targetSessionId, activeStreamMessageObj);
     }
     
     loadSettings();
