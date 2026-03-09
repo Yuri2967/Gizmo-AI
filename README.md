@@ -1,61 +1,63 @@
 # Gizmo AI 💬
 
-**A premium, privacy-focused web client for Google's Gemini models.**
+**A premium, privacy-focused, and multimodal web client for Google’s Gemini AI.**
 
-Gizmo AI is a lightweight, zero-dependency chat interface designed with a clean aesthetic. It runs entirely in your browser, connecting directly to the Google Gemini API without intermediate servers, ensuring your chat history and API keys stay on your device.
+Gizmo AI is a high-performance, zero-dependency chat interface designed with a native Apple-esque aesthetic. It runs entirely in your browser, connecting directly to the Google Gemini API. With its "Claude-style" floating input design and high-density "Pro" menus, Gizmo offers a top-tier user experience without the need for a backend or data harvesting.
 
 🔗 **Live Demo:** https://yuri2967.github.io/Gizmo-AI/
 
+---
+
 ## ✨ Features
 
-*   **Premium UI/UX:** A clean, glassmorphic interface inspired by iOS and macOS, featuring smooth transitions and a responsive sidebar.
-*   **Multi-Model Support:** Switch instantly between models like **Gemini 3.1 Flash Lite**, **Gemma 3 27B**, and others.
-*   **Multimodal Capabilities:** Upload images for analysis, code debugging, or creative inspiration.
-*   **Markdown Support:** Full rendering for code blocks, tables, lists, and formatted text (powered by `marked.js` & `DOMPurify`).
-*   **Voice Interaction:** Built-in Text-to-Speech (TTS) to listen to AI responses.
-*   **Smart History:**
-    *   Chat sessions are saved automatically to your browser's `localStorage`.
-    *   Rename, delete, or switch between conversations easily.
-    *   **Sliding Window Memory:** Configurable context limits to manage token usage efficiently.
-*   **Dark/Light Mode:** Toggle between themes to match your system or preference.
-*   **Export & Tools:** Copy code snippets or full messages with a single click.
+### 🖥️ Native-Level UI/UX
+*   **Floating Input Bar:** A modern, input container that allows long-form text to overflow neatly.
+*   **Glassmorphic Design:** Premium `backdrop-filter` effects with unified 85% transparency and 20px blur across all menus and dropdowns.
+*   **Snappy Controls:** Custom-built dropdowns and menus optimized with `pointer-events` for instant, lag-free responsiveness.
+*   **Responsive Sidebar:** Manage multiple conversations effortlessly with a collapsible, mobile-friendly history list.
 
-## 🚀 Getting Started
+### 🧠 Intelligent Conversational State
+*   **Per-Chat Model Memory:** Choose different models (Gemini 3.1, Gemma 3, etc.) for different threads—Gizmo remembers your preference per conversation.
+*   **Real-Time Streaming:** Responses stream in chunk-by-chunk using Server-Sent Events (SSE) for a fluid reading experience.
+*   **Sliding Window Memory:** Optimized token management that keeps context relevant while staying within API limits.
 
-Since Gizmo AI is a static web application, there is no installation or build process required.
+### 📎 Multimodal & Robust
+*   **Advanced File Support:** Upload, drag-and-drop, or paste (`Ctrl+V`) images, PDFs, and code files directly into the chat.
+*   **Anti-Bricking Logic:** Gizmo detects file errors and automatically strips problematic attachments from history to keep your chat flowing.
+*   **Plain-Text TTS:** "Listen" mode strips Markdown syntax before speaking, ensuring a natural voice experience without hearing "asterisk" or "hash."
 
-### Option 1: Run Locally
-1.  **Clone or Download** this repository.
-2.  Open `index.html` directly in any modern web browser (Chrome, Safari, Edge, Firefox).
-3.  That's it!
+### ⚡ Environmental Awareness
+*   **Impact Tracking:** Live estimation of the power (Wh) and water (ml) used for your specific chat session, calculated using dynamic heuristics based on the size of the AI model selected.
 
-### Option 2: Deploy
-You can host this for free on GitHub Pages, Vercel, or Netlify by simply uploading the files (`index.html`, `style.css`, `script.js`).
-
-## ⚙️ Configuration
-
-To use Gizmo, you need a Google Gemini API Key.
-
-1.  Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
-2.  Open Gizmo AI.
-3.  Click the **Settings Gear ⚙️** icon in the input bar.
-4.  Paste your key into the **API Key** field.
-5.  (Optional) Adjust your **Model** and **Memory** settings.
-
-**Note:** Your API key is saved in your browser's Local Storage. It is never sent to any third-party server other than Google's API endpoint.
+---
 
 ## 🛠️ Tech Stack
 
-*   **Core:** Vanilla HTML5, CSS3, JavaScript (ES6+).
-*   **Dependencies:**
-    *   `marked.js` (Markdown parsing)
-    *   `DOMPurify` (Security/Sanitization)
-*   **Storage:** `localStorage` (Client-side state management).
-*   **Icons:** Minimalist SVG icons.
+*   **Core:** Vanilla HTML5, CSS3 (Flexbox/Grid), JavaScript (ES6+).
+*   **Markdown:** `marked.js` for high-speed rendering.
+*   **Security:** `DOMPurify` for XSS protection and aggressive anti-credential manager attributes to prevent password-popup interference.
+*   **API:** Direct integration with Google Generative Language API (V1Beta).
+
+---
+
+## 🚀 Getting Started
+
+Since Gizmo AI is a static web application, no installation or build tools are required.
+
+### 1. Setup
+1.  **Clone/Download** this repository.
+2.  Open `index.html` in any modern browser (Chrome, Safari, Edge, Firefox).
+
+### 2. Connect to Gemini
+1.  Obtain a free API key from **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
+2.  In Gizmo, click the **Plus (+)** button in the input bar.
+3.  Paste your key into the **API Key** field.
+4.  Gizmo saves this locally to your browser; it is **never** sent to any third-party server.
+
+---
 
 ## 🔒 Privacy & Security
 
-Gizmo AI is designed to be **Client-Side Only**.
-*   **No Backend:** There is no server processing your messages.
-*   **Direct Connection:** Requests go strictly from `Your Browser` -> `Google Gemini API`.
-*   **Data Persistence:** Chat history and API keys persist only on your specific device and browser. Clearing your browser cache will remove your chat history.
+*   **Client-Side Only:** There is no server between you and Google.
+*   **Local Storage:** Your chat history, model preferences, and API keys remain on your physical device.
+*   **Secure Input:** The input field is strictly configured to be ignored by password managers (Apple Keychain, 1Password, etc.).
