@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gizmo AI</title>
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
+    
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension@5.1.1/lib/index.umd.js"></script>
 </head>
 <body>
 
@@ -54,106 +60,145 @@
         </div>
 
         <div id="input-area">
-            <form id="chat-form" autocomplete="off">
-                <div class="floating-input-container">
-                    <div id="file-preview-container"></div>
-                    <textarea id="chat-query" 
-                              name="q"
-                              placeholder="Message..." 
-                              autocomplete="off" 
-                              autocorrect="off" 
-                              autocapitalize="off" 
-                              spellcheck="false"
-                              data-1p-ignore
-                              data-lpignore="true"
-                              data-form-type="other"
-                              rows="1"></textarea>
-                    
-                    <div class="input-controls-row">
-                        <div class="settings-wrapper">
-                            <button type="button" id="plus-settings-btn" aria-label="Menu and Attachments">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 13H5v-2h6V5h2v6h6v2h-6v6h-2v-6z"/></svg>
-                            </button>
-                            <div id="settings-menu">
-                                <div class="settings-row" role="button" tabindex="0" id="menu-add-files-btn">
-                                    <span class="settings-label">
-                                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z"/></svg>
-                                        <span>Add files</span>
-                                    </span>
-                                </div>
-                                <div class="settings-row">
-                                    <span class="settings-label">
-                                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
-                                        <span>Memory</span>
-                                    </span>
-                                    <div class="custom-select" tabindex="0" id="custom-history-select" data-value="10">
-                                        <div class="select-trigger">
-                                            <span>Last 10 Msgs</span>
-                                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
-                                        </div>
-                                        <div class="options-list">
-                                            <div class="option" data-value="4">Last 4 Msgs</div>
-                                            <div class="option" data-value="10">Last 10 Msgs</div>
-                                            <div class="option" data-value="20">Last 20 Msgs</div>
-                                            <div class="option" data-value="0">All (High Cost)</div>
+            <div class="input-content-wrapper">
+                <div id="chat-form-container">
+                    <div class="floating-input-container">
+                        <div id="file-preview-container"></div>
+                        <textarea id="chat-query" 
+                                  placeholder="Message..." 
+                                  autocomplete="off" 
+                                  autocorrect="off" 
+                                  autocapitalize="off" 
+                                  spellcheck="false"
+                                  data-1p-ignore="true"
+                                  data-lpignore="true"
+                                  data-form-type="other"
+                                  rows="1"></textarea>
+                        
+                        <div class="input-controls-row">
+                            <div class="settings-wrapper">
+                                <button type="button" id="plus-settings-btn" aria-label="Menu and Attachments">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 13H5v-2h6V5h2v6h6v2h-6v6h-2v-6z"/></svg>
+                                </button>
+                                <div id="settings-menu">
+                                    <div class="settings-row" role="button" tabindex="0" id="menu-add-files-btn">
+                                        <span class="settings-label">
+                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-8l-2-2H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-1 8h-3v3h-2v-3h-3v-2h3V9h2v3h3v2z"/></svg>
+                                            <span>Add files</span>
+                                        </span>
+                                    </div>
+                                    <div class="settings-row">
+                                        <span class="settings-label">
+                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+                                            <span>Memory</span>
+                                        </span>
+                                        <div class="custom-select" tabindex="0" id="custom-history-select" data-value="10">
+                                            <div class="select-trigger">
+                                                <span>Last 10 Msgs</span>
+                                                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+                                            </div>
+                                            <div class="options-list">
+                                                <div class="option" data-value="4">Last 4 Msgs</div>
+                                                <div class="option" data-value="10">Last 10 Msgs</div>
+                                                <div class="option" data-value="20">Last 20 Msgs</div>
+                                                <div class="option" data-value="0">All (High Cost)</div>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                                <div class="settings-row">
-                                    <span class="settings-label">
-                                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
-                                        <span>API Key</span>
-                                    </span>
-                                    <input type="password" id="api-key-input" class="settings-input" placeholder="Your API Key" name="k" autocomplete="new-password">
-                                </div>
-                                <div id="toggle-theme-button" class="settings-row" role="button" tabindex="0">
-                                     <span class="settings-label">
-                                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.64-.11 2.4-.31-.31-.81-.49-1.7-.49-2.69 0-2.76 2.24-5 5-5 .99 0 1.88.18 2.69.49.2-.76.31-1.57.31-2.4 0-4.97-4.03-9-9-9z"/></svg>
-                                        <span>Toggle Theme</span>
-                                    </span>
+                                    <div class="settings-row">
+                                        <span class="settings-label">
+                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z"/></svg>
+                                            <span>API Key</span>
+                                        </span>
+                                        <input type="text" id="app-sec-key" class="settings-input password-mask" placeholder="Your API Key" autocomplete="off" spellcheck="false" data-1p-ignore="true" data-lpignore="true">
+                                    </div>
+                                    <div id="toggle-theme-button" class="settings-row" role="button" tabindex="0">
+                                         <span class="settings-label">
+                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.64-.11 2.4-.31-.31-.81-.49-1.7-.49-2.69 0-2.76 2.24-5 5-5 .99 0 1.88.18 2.69.49.2-.76.31-1.57.31-2.4 0-4.97-4.03-9-9-9z"/></svg>
+                                            <span>Toggle Theme</span>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="right-controls">
-                            <div class="custom-select inline-model" tabindex="0" id="custom-model-select" data-value="gemini-3.1-flash-lite-preview">
-                                <div class="select-trigger">
-                                    <span>Gemini 3.1 Flash Lite</span>
-                                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+                            <div class="right-controls">
+                                <div class="custom-select inline-model" tabindex="0" id="custom-model-select" data-value="gemini-3.1-flash-lite-preview">
+                                    <div class="select-trigger">
+                                        <span>Gemini 3.1 Flash Lite</span>
+                                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>
+                                    </div>
+                                    <div class="options-list">
+                                        <div class="option" data-value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite</div>
+                                        <div class="option" data-value="gemma-3-27b-it">Gemma 3 27B</div>
+                                        <div class="option" data-value="gemma-3-12b-it">Gemma 3 12B</div>
+                                        <div class="option" data-value="gemma-3-4b-it">Gemma 3 4B</div>
+                                        <div class="option" data-value="gemma-3-2b-it">Gemma 3 2B</div>
+                                        <div class="option" data-value="gemma-3-1b-it">Gemma 3 1B</div>
+                                    </div>
                                 </div>
-                                <div class="options-list">
-                                    <div class="option" data-value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash Lite</div>
-                                    <div class="option" data-value="gemma-3-27b-it">Gemma 3 27B</div>
-                                    <div class="option" data-value="gemma-3-12b-it">Gemma 3 12B</div>
-                                    <div class="option" data-value="gemma-3-4b-it">Gemma 3 4B</div>
-                                    <div class="option" data-value="gemma-3-2b-it">Gemma 3 2B</div>
-                                    <div class="option" data-value="gemma-3-1b-it">Gemma 3 1B</div>
-                                </div>
+                                
+                                <button type="button" aria-label="Send message" id="send-btn">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
+                                </button>
                             </div>
-                            
-                            <button type="submit" aria-label="Send message" id="send-btn">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
-                            </button>
                         </div>
                     </div>
+                    <input type="file" id="file-input" hidden accept="image/*,application/pdf,text/plain">
                 </div>
-                <input type="file" id="file-input" hidden accept="image/*,application/pdf,text/plain">
-            </form>
-            
-            <div id="token-display-area">
-                <span class="stats-container">
-                    Tokens:&nbsp;<span id="total-tokens-value">0</span>
-                    <span class="stats-divider">|</span>
-                    ⚡&nbsp;<span id="power-value">0</span> Wh
-                    <span class="stats-divider">|</span>
-                    💧&nbsp;<span id="water-value">0</span> ml
-                </span>
-                <span>Gizmo can make mistakes. Check important info.</span>
+                
+                <div id="token-display-area">
+                    <span class="stats-container clickable-stats" id="stats-trigger" role="button" tabindex="0" aria-label="View Environmental Impact">
+                        Tokens:&nbsp;<span id="total-tokens-value">0</span>
+                        <span class="stats-info-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+                        </span>
+                    </span>
+                    <span>Gizmo can make mistakes. Check important info.</span>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Image Enlarge Modal (Lightbox) -->
+    <div id="global-modal-overlay" class="hidden">
+        
+        <div id="api-key-popup" class="glass-popup hidden">
+            <h2>Welcome to Gizmo AI ✨</h2>
+            <p>To start chatting, you need a free Google Gemini API Key.</p>
+            <ol>
+                <li>Get your key from <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a>.</li>
+                <li>Click the <strong>+</strong> button below the input field.</li>
+                <li>Paste your key into the <strong>API Key</strong> setting.</li>
+            </ol>
+            <button class="primary-btn" id="close-api-popup">Got it</button>
+        </div>
+
+        <div id="stats-popup" class="glass-popup hidden">
+            <h2>Environmental Impact 🌱</h2>
+            <p>Based on standard LLM inference parameters, this chat session has consumed approximately:</p>
+            <ul class="stats-list">
+                <li>
+                    <strong>⚡ <span id="popup-power-val">0</span> <span id="popup-power-unit">Wh</span></strong>
+                    <div class="stats-desc">Equal to <span id="stats-ref-power">charging ~0% of a smartphone</span>.</div>
+                </li>
+                <li>
+                    <strong>💧 <span id="popup-water-val">0</span> <span id="popup-water-unit">ml</span></strong>
+                    <div class="stats-desc">Equal to <span id="stats-ref-water">~0 bottles of water (500ml)</span>.</div>
+                </li>
+            </ul>
+            <button class="primary-btn" id="close-stats-popup">Close</button>
+        </div>
+
+        <div id="confirm-popup" class="glass-popup hidden">
+            <h2>Delete Chat</h2>
+            <p id="confirm-message">Are you sure you want to permanently delete this chat?</p>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+                <button class="secondary-btn" id="confirm-no-btn">Cancel</button>
+                <button class="primary-btn" style="margin-top: 0; background: #EF4444;" id="confirm-yes-btn">Delete</button>
+            </div>
+        </div>
+
+    </div>
+
     <div id="image-modal" class="hidden">
         <span id="close-modal">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
