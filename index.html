@@ -6,7 +6,6 @@
     <title>Gizmo AI</title>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    
     <link rel="stylesheet" href="style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
     
@@ -33,9 +32,8 @@
                 <span class="new-chat-text">New Chat</span>
             </button>
         </div>
-        <div id="history-list">
-            <!-- Chat items will be injected here -->
-        </div>
+        <div id="history-list"></div>
+        <div id="sidebar-resizer"></div>
     </div>
     
     <div id="sidebar-overlay"></div>
@@ -122,6 +120,14 @@
                             </div>
 
                             <div class="right-controls">
+                                <button type="button" id="web-search-toggle" class="web-search-btn" title="Enable Web Search" aria-label="Web Search">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="2" y1="12" x2="22" y2="12"></line>
+                                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                                    </svg>
+                                </button>
+                                
                                 <div class="custom-select inline-model" tabindex="0" id="custom-model-select" data-value="gemini-3.1-flash-lite-preview">
                                     <div class="select-trigger">
                                         <span>Gemini 3.1 Flash Lite</span>
@@ -132,7 +138,6 @@
                                         <div class="option" data-value="gemma-3-27b-it">Gemma 3 27B</div>
                                         <div class="option" data-value="gemma-3-12b-it">Gemma 3 12B</div>
                                         <div class="option" data-value="gemma-3-4b-it">Gemma 3 4B</div>
-                                        <div class="option" data-value="gemma-3-2b-it">Gemma 3 2B</div>
                                         <div class="option" data-value="gemma-3-1b-it">Gemma 3 1B</div>
                                     </div>
                                 </div>
@@ -177,11 +182,11 @@
             <p>Based on standard LLM inference parameters, this chat session has consumed approximately:</p>
             <ul class="stats-list">
                 <li>
-                    <strong>⚡ <span id="popup-power-val">0</span> <span id="popup-power-unit">Wh</span></strong>
+                    <strong>⚡ <span id="popup-power-val">0 Wh</span></strong>
                     <div class="stats-desc">Equal to <span id="stats-ref-power">charging ~0% of a smartphone</span>.</div>
                 </li>
                 <li>
-                    <strong>💧 <span id="popup-water-val">0</span> <span id="popup-water-unit">ml</span></strong>
+                    <strong>💧 <span id="popup-water-val">0 ml</span></strong>
                     <div class="stats-desc">Equal to <span id="stats-ref-water">~0 bottles of water (500ml)</span>.</div>
                 </li>
             </ul>
@@ -189,11 +194,11 @@
         </div>
 
         <div id="confirm-popup" class="glass-popup hidden">
-            <h2>Delete Chat</h2>
-            <p id="confirm-message">Are you sure you want to permanently delete this chat?</p>
+            <h2 id="confirm-title">Confirm</h2>
+            <p id="confirm-message">Are you sure?</p>
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
                 <button class="secondary-btn" id="confirm-no-btn">Cancel</button>
-                <button class="primary-btn" style="margin-top: 0; background: #EF4444;" id="confirm-yes-btn">Delete</button>
+                <button class="primary-btn" id="confirm-yes-btn">Proceed</button>
             </div>
         </div>
 

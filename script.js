@@ -1,10 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Inject Official KaTeX Markdown Extension
     const options = { throwOnError: false };
     if (window.markedKatex) marked.use(window.markedKatex(options));
 
-    // --- Element References ---
     const body = document.body;
     const userInput = document.getElementById('chat-query');
     const chatLog = document.getElementById('chat-log');
@@ -32,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const enlargedImage = document.getElementById('enlarged-image');
     const closeModalBtn = document.getElementById('close-modal');
 
-    // Popups
     const globalModalOverlay = document.getElementById('global-modal-overlay');
     const apiKeyPopup = document.getElementById('api-key-popup');
     const closeApiPopupBtn = document.getElementById('close-api-popup');
@@ -45,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const confirmYesBtn = document.getElementById('confirm-yes-btn');
     const confirmNoBtn = document.getElementById('confirm-no-btn');
 
-    // --- State & Constants ---
     let userApiKey = '';
     let historyLimit = 10; 
     let currentSessionId = Date.now().toString();
@@ -108,7 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
     closeStatsPopupBtn.addEventListener('click', hidePopups);
     globalModalOverlay.addEventListener('click', (e) => { if (e.target === globalModalOverlay) hidePopups(); });
 
-    // Custom Confirm Trigger (Safely cloning to prevent stacked event listeners breaking deletion)
     function showConfirmPopup(message, onConfirm) {
         confirmMsg.textContent = message;
         confirmNoBtn.onclick = hidePopups;
@@ -563,7 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         ADD_ATTR:['display', 'xmlns', 'class', 'style', 'aria-hidden']
                     });
                     
-                    // Kill ugly red styling on broken hallucinatory LaTeX
                     activeStreamBubbleElement.querySelectorAll('.katex-error').forEach(err => {
                         err.textContent = err.getAttribute('title')?.replace('ParseError: KaTeX parse error: ', '') || err.textContent;
                     });
@@ -675,14 +669,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Safely Extract Plain Text 
     function stripMarkdown(md) {
         let cleanText = md.replace(/\\\(([\s\S]+?)\\\)/g, '$$$1$$').replace(/\\\[([\s\S]+?)\\\]/g, '$$$$$1$$$$');
         const t = document.createElement('div'); 
         t.innerHTML = marked.parse(cleanText);
         t.querySelectorAll('.katex-mathml').forEach(el => el.remove());
         
-        // Remove literal formatting tags so they don't break string rendering
         let finalStr = t.textContent || t.innerText || "";
         return finalStr.replace(/\*\*/g, '').replace(/### /g, '');
     }
@@ -690,7 +682,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function enableInlineEdit(inner, bubble, msgData) {
         const originalText = msgData.parts.find(p => p.text)?.text || "";
         
-        // HARD Width Lock to prevent bubble from jumping/resizing
         const currentRect = bubble.getBoundingClientRect();
         bubble.style.width = Math.max(currentRect.width, 250) + 'px'; 
         bubble.classList.add('editing');
@@ -786,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
         conversationHistory.pop(); const lastU = conversationHistory.pop();
         conversationHistory.push(lastU); saveSpecificSession(currentSessionId);
         
-        renderChatLog(); // Clear duplicate logic issue
+        renderChatLog();
         
         isGenerating = true; setFormDisabled(true); activeStreamSessionId = currentSessionId;
         const selectedModel = getCustomSelectValue('custom-model-select');
