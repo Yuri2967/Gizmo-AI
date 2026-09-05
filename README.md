@@ -8,7 +8,7 @@ Gizmo AI is a high-performance, zero-dependency chat interface designed with a n
 
 ---
 
-## ✨ Features
+## Features
 
 ### 🖥️ Native-Level UI/UX
 *   **Floating Input Bar:** A modern, isolated input container that allows long-form text to overflow neatly.
@@ -34,7 +34,7 @@ Gizmo AI is a high-performance, zero-dependency chat interface designed with a n
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 *   **Core:** Vanilla HTML5, CSS3 (Flexbox/Grid), JavaScript (ES6+).
 *   **Markdown:** `marked.js` for high-speed text rendering.
@@ -44,7 +44,7 @@ Gizmo AI is a high-performance, zero-dependency chat interface designed with a n
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 Since Gizmo AI is a static web application, no installation or build tools are required.
 
@@ -60,7 +60,7 @@ Since Gizmo AI is a static web application, no installation or build tools are r
 
 ---
 
-## 🔒 Privacy & Security
+## Privacy & Security
 
 *   **Client-Side Only:** There is no server between you and Google.
 *   **Local Storage:** Your chat history, model preferences, and API keys remain on your physical device.
